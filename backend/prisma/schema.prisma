@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 1. The Users
+model User {
+  id             Int           @id @default(autoincrement())
+  name           String
+  email          String        @unique
+  role           String        @default("USER") 
+  
+  // These lines tell Prisma how users connect to rides and requests
+  primaryRides   Ride[]        @relation("PrimaryRider")
+  joinRequests   JoinRequest[] @relation("SecondaryRider")
+  createdAt      DateTime      @default(now())
+}
+
+// 2. The Main Ride (Created by Primary Rider)
+model Ride {
+  id             Int           @id @default(autoincrement())
+  
+  // Who created this ride?
+  primaryRiderId Int
+  primaryRider   User          @relation("PrimaryRider", fields: [primaryRiderId], references: [id])
+  
+  // Primary's Route
+  startLat       Float
+  startLng       Float
+  endLat         Float
+  endLng         Float
+
+
+  fare        Float @default(0)
+  
+  // The FareShare Settings
+  isFareShare    Boolean       @default(false) // Toggle ON/OFF
+  sharedSeats    Int           @default(0)     // 1, 2, or 3 capacity
+
+  
+  status         String        @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED
+  
+  // A ride can have many join requests from secondary riders
+  joinRequests   JoinRequest[]
+  createdAt      DateTime      @default(now())
+}
+
+// 3. The Secondary Rider's Request to Join
+model JoinRequest {
+  id               Int      @id @default(autoincrement())
+  
+  // Which ride are they trying to join?
+  rideId           Int
+  ride             Ride     @relation(fields: [rideId], references: [id])
+  
+  // Who is asking to join?
+  secondaryRiderId Int
+  secondaryRider   User     @relation("SecondaryRider", fields: [secondaryRiderId], references: [id])
+  
+  // Secondary's Specific Route (to calculate the overlap later)
+  startLat         Float
+  startLng         Float
+  endLat           Float
+  endLng           Float
+  
+  // Primary Rider will change this to ACCEPTED or REJECTED
+  status           String   @default("PENDING") 
+  createdAt        DateTime @default(now())
+}
